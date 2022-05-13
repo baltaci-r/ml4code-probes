@@ -1,3 +1,7 @@
+.python-version # pyenv
+*.egg-info/
+tree-sitter-java
+tree-sitter-python
 __pycache__/
 *.class
 *.lst
@@ -7,3 +11,6 @@ __pycache__/
 *.tar.gz
 **/log.txt
 *.jar
+java_parser/target/
+.vscode/
+.editorconfig
