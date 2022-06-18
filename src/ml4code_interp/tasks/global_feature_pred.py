@@ -90,8 +90,11 @@ class GlobalFeaturePredTask:
         inputs = data['embeds']
         num_layers = len(inputs)
 
+        results = {} # maps (feature_name, layer_idx) to {"accuracy": float, "confusion_matrix": Tensor[2][2]}
+
         for f_idx, f_name in tqdm(enumerate(data['feature_names'])):
             y = data['features'][f_idx]
+            results[f_name] = {}
             
             for l in tqdm(range(num_layers)):
                 # type - Tensor[NumDocs], where Tensor is of shape (EmbeddingDim)
@@ -108,7 +111,11 @@ class GlobalFeaturePredTask:
                 
                 pipe = make_pipeline(
                     StandardScaler(),
-                    LogisticRegression(class_weight='balanced', random_state=0),
+                    LogisticRegression(
+                        class_weight='balanced',
+                        random_state=0,
+                        max_iter=1000,
+                    ),
                 )
                 pipe.fit(X_train, y_train)
                 # y_test = [1 for _ in y_test]
@@ -118,5 +125,12 @@ class GlobalFeaturePredTask:
                 y_pred = pipe.predict(X_test)
                 print(confusion_matrix(y_test, y_pred))
                 print()
+
+                results[f_name][l] = {
+                    "accuracy": acc,
+                    "confusion_matrix": confusion_matrix(y_test, y_pred).tolist()
+                }
             
             print("=" * 80)
+        
+        return results

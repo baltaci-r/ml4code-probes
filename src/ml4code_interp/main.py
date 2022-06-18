@@ -44,7 +44,8 @@ def read_raw_data(jsonl_path):
 # parse_result = parse(lang, code)
 
 data_path = "/home/parthdt2/project/interpretability/data/CodeSearchNet/resources/data/java/final/jsonl/test/java_test_0.jsonl"
-model = InterpretableModel("microsoft/codebert-base")
+model_name = "microsoft/codebert-base"
+model = InterpretableModel(model_name)
 # embeddings_per_token = model.get_embeddings_per_token(parse_result)
 # for tok, x in zip(parse_result.toks, embeddings_per_token):
 #     print(tok.str, len(x), x[0].shape if len(x) > 0 else None)
@@ -58,7 +59,10 @@ task = GlobalFeaturePredTask(model)
 # os.exit()
 
 data = torch.load(path)
-task.run(data)
+results = task.run(data)
+
+with open(cur_dir/f"../../results/global_pred_{model_name.replace('/', '_')}.json", "w") as f:
+    json.dump(results, f)
 
 # print(prepared_data)
 
