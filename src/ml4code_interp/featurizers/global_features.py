@@ -6,19 +6,22 @@ e.g., whether the code has an if statement, a while statement, etc.
 The input is a tree-sitter AST's root node.
 """
 
+
+FEATURE_NAMES = dict(
+    HAS_IF = 0,
+    HAS_WHILE = 1,
+    HAS_FOR = 2,
+    HAS_SWITCH = 3,
+    HAS_TRY_CATCH = 4,
+    HAS_THROW = 5,
+    HAS_INVOKE = 6,
+)
+
+
 class GlobalFeaturesExtractor(object):
-    FEATURE_NAMES = [
-        'has_if',
-        'has_while',
-        'has_for',
-        'has_switch',
-        'has_try_catch',
-        'has_throw',
-        'has_invoke',
-    ]
     def __init__(self, lang, parse_result):
         self.root_node = parse_result.tree.root_node
-        self.features = {f: False for f in self.FEATURE_NAMES}
+        self.features = [0 for _ in FEATURE_NAMES]
 
         self.lang_2_elem_map = self._load_lang_2_elem_map(lang)
 
@@ -41,13 +44,13 @@ class GlobalFeaturesExtractor(object):
         q = [self.root_node]
         while len(q) > 0:
             node = q.pop()
-            self.features['has_if']        |= node.type in self.lang_2_elem_map['if']
-            self.features['has_while']     |= node.type in self.lang_2_elem_map['while']
-            self.features['has_for']       |= node.type in self.lang_2_elem_map['for']
-            self.features['has_switch']    |= node.type in self.lang_2_elem_map['switch']
-            self.features['has_try_catch'] |= node.type in self.lang_2_elem_map['try_catch']
-            self.features['has_throw']     |= node.type in self.lang_2_elem_map['throw']
-            self.features['has_invoke']    |= node.type in self.lang_2_elem_map['invoke']
+            self.features[FEATURE_NAMES['HAS_IF']]        |= node.type in self.lang_2_elem_map['if']
+            self.features[FEATURE_NAMES['HAS_WHILE']]     |= node.type in self.lang_2_elem_map['while']
+            self.features[FEATURE_NAMES['HAS_FOR']]       |= node.type in self.lang_2_elem_map['for']
+            self.features[FEATURE_NAMES['HAS_SWITCH']]    |= node.type in self.lang_2_elem_map['switch']
+            self.features[FEATURE_NAMES['HAS_TRY_CATCH']] |= node.type in self.lang_2_elem_map['try_catch']
+            self.features[FEATURE_NAMES['HAS_THROW']]     |= node.type in self.lang_2_elem_map['throw']
+            self.features[FEATURE_NAMES['HAS_INVOKE']]    |= node.type in self.lang_2_elem_map['invoke']
             for child in node.children:
                 q.append(child)
 

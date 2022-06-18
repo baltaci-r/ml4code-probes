@@ -26,7 +26,7 @@ class TokenLabelPredTask:
     def prepare_data(self):
         output = {
             # "doc_id": [],      # type: int[NumDocs]
-            # "token_texts":  [],# type: str[NumDocs][NumTokens]
+            "code":         [],  # type: str[NumDocs]
             "embeds":       [],  # type: Tensor[NumDocs][NumLayers][NumTokens] where Tensor is of shape (NumModelTokens, EmbeddingDim).
                                  #       Note that NumModelTokens may be different for every tensor.
             "labels":       []   # type: str[NumDocs][NumTokens]
@@ -38,7 +38,7 @@ class TokenLabelPredTask:
             embeddings = self.model.get_embeddings_per_token(parse_result)
             labels = TokenTypeLabeler(lang, parse_result).featurize()
             
-            # output['token_texts'].append([tok.str for tok in parse_result.toks])
+            output['code'].append(code)
             output['embeds'].append(embeddings)
             output['labels'].append(labels)
         
