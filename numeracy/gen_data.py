@@ -17,8 +17,8 @@ bexp -> "True" | "False" | bexp "or" bexp | bexp "and" bexp | "not" bexp | "(" b
 """
 
 ARITH_CFG = """
+expr -> "INT" | "VAR" | "(" expr ")" | "+" expr | "-" expr | expr "/" expr |  expr "*" expr | expr "+" expr | expr "-" expr
 """
-
 
 def gen_list_maximum(data_type, min, max, n: int, m: int):
     if data_type == 'ints':
@@ -93,6 +93,12 @@ def gen_logic_operations(dtype, min, max, n: int, m: int):
         outs = inps.applymap(pythonizer)
 
     elif dtype == 'algebraic':
+        grammar = CFG.fromstring(ARITH_CFG)
+        inps = random.sample(list(generate(grammar, depth=m)), n)
+        inps = pd.DataFrame([' '.join(sent) for sent in inps])
+        inps = inps.astype(str)
+        pythonizer = lambda x: eval(f"{x}")
+        outs = inps.applymap(pythonizer)
         A=1
 
 
