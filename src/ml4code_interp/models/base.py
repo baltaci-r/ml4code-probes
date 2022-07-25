@@ -4,7 +4,7 @@ import torch
 from transformers import AutoTokenizer, AutoModel, BatchEncoding
 from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAttentions
 
-from ml4code_interp.featurizers.parser_utils import ParseResult
+from featurizers.parser_utils import ParseResult
 
 class InterpretableModel(object):
     """

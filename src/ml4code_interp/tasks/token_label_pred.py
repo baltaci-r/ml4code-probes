@@ -4,9 +4,9 @@ This module contains the code for the token label prediction task.
 
 from typing import List, Tuple
 
-from ml4code_interp.featurizers.token_labeler import TokenTypeLabeler
-from ml4code_interp.featurizers.parser_utils import parse
-from ml4code_interp.models.base import InterpretableModel
+from featurizers.token_labeler import TokenTypeLabeler
+from featurizers.parser_utils import parse
+from models.base import InterpretableModel
 
 class TokenLabelPredTask:
     """

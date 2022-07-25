@@ -4,7 +4,7 @@ Collection of featurizers that labels each token
 
 from dataclasses import dataclass
 
-from ml4code_interp.featurizers.parser_utils import ParseResult, ParsedToken
+from featurizers.parser_utils import ParseResult, ParsedToken
 
 @dataclass
 class TokenLabel:

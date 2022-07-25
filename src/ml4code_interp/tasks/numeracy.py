@@ -13,10 +13,11 @@ import pandas as pd
 import numpy as np
 from torch import Tensor
 from torch.utils.data import DataLoader, TensorDataset
-from ml4code_interp.featurizers.parser_utils import parse
+from featurizers.parser_utils import parse
 import torch.nn.functional as F
 import os, torch
 import torch.nn as nn
+from torch.utils.tensorboard import SummaryWriter
 
 
 # Metrics:
@@ -133,25 +134,32 @@ class SeqLSTMModel(nn.Module):
 # Pipeline:
 # ---------
 class Pipeline:
-    def __init__(self, task, criterion):
+    def __init__(self, config, task, criterion):
         # self.model = model
+        self.config = config
         self.task = task
         self.criterion = criterion
 
     def train(self, dataset, batch_size, lr, max_epochs):
+        writer = SummaryWriter(log_dir=os.path.join('runs', self.config))
+        print('Training config:', self.config)
         self.task.model.train()
         dataloader = DataLoader(dataset, batch_size=batch_size)
-        optimizer = torch.optim.SGD(self.task.model.parameters(), lr=lr)
+        optimizer = torch.optim.Adam(self.task.model.parameters(), lr=lr)
+        ep = 0
         for epoch in tqdm(range(max_epochs)):
             running_loss = 0.0
             for i, (x, y) in enumerate(dataloader):
                 optimizer.zero_grad()
                 y_pred = self.task.model(x).squeeze()
-                loss = self.criterion(y_pred, y.squeeze())  # change list maximum to the original 1, 0 binary ex: [0, 1, 0, 0, 0]
+                loss = self.criterion(y_pred, y.squeeze())
                 loss.backward()
                 optimizer.step()
                 running_loss += loss.item()
-                if i % 2000 == 0:  # print every 2000 mini-batches
+                ep += 1
+                writer.add_scalar(f"Loss/train", loss.item(), epoch)
+                if ep % 200 == 0:  # print every 2000 mini-batches
+                    print('ep:', ep, '\tloss:', running_loss/200)
                     running_loss = 0.0
 
     def test(self, X_test, y_test):
@@ -172,6 +180,7 @@ class NumeracyTask:
         self.num_layers = model.model.config.num_hidden_layers
 
     def load_data(self, path, data_path):
+        print('Loading Data..')
         # todo: convert data to one json file
         if not os.path.exists(path):
             with open(data_path) as f:
@@ -179,6 +188,8 @@ class NumeracyTask:
                 for dct in tqdm(f):
                     dct = json.loads(dct)
                     config = dct['config']
+                    config_name = '-'.join([f'{k}-{v}' for k, v in config.items()])
+                    print(f'Preparing Dataset for: {config_name}')
                     data = pd.DataFrame(dct['data']).apply(tuple, axis=1).tolist()
                     if config['task'] in ['list_maximum', 'decoding']:
                         prepared_data = self.prepare_data_seperate(data)
@@ -244,14 +255,14 @@ class NumeracyTask:
         results = {}
 
         hidden_size = 128
-        epochs = 100
-        lr = 1e-4
+        epochs = 1000
+        lr = 1e-2
         bs = 128
-        
-        for dct in all_data:  # [8:]:  # JUST FOR NOW
+
+        for dct in all_data:
             config = dct['config']
-            data = dct['data']
             config_name = '-'.join([f'{k}-{v}' for k, v in config.items()])
+            data = dct['data']
             sub_task_name = config['task']
             type_name = config['type']
             if type_name == 'words':  # dash is causing tokens to be tokenized as seperate, fix later!
@@ -263,8 +274,8 @@ class NumeracyTask:
             results[config_name] = {}
 
             for l in tqdm(range(num_layers)):
-                if l==1:
-                    break
+                config.update({'hs': hidden_size, 'lr': lr, 'bs': bs, 'eps': epochs, 'lay': l})
+                config_name_lay = '-'.join([f'{k}-{v}' for k, v in config.items()])
                 X = torch.vstack(inputs[l])  # fails at logic operation since we need to pad the sequences
                 y = Tensor(y)
                 X_train, X_test, y_train, y_test = train_test_split(
@@ -287,10 +298,10 @@ class NumeracyTask:
                 elif sub_task_name == 'logic':
                     input_dim = X_train.shape[-1]
                     if 'algebraic' in type_name:
-                        criterion = nn.MSELoss()  
+                        criterion = nn.MSELoss()
                         task_model = LogicTask('algebraic', input_dim, hidden_size)
                     elif 'bool' in type_name:
-                        criterion = nn.BCEWithLogitsLoss()  
+                        criterion = nn.BCEWithLogitsLoss()
                         task_model = LogicTask('bool', input_dim, hidden_size)
                     elif 'comparative' in type_name:
                         _, output_size = y.shape  # todo
@@ -298,13 +309,13 @@ class NumeracyTask:
                         task_model = LogicTask('comparative', input_dim, hidden_size, output_size)
                 else:
                     raise('Undefined Task')
-                
-                pipe = Pipeline(task_model, criterion)  # model, criterion, epochs, lr)
+
+                pipe = Pipeline(config_name_lay, task_model, criterion)  # model, criterion, epochs, lr)
                 dataset = TensorDataset(X_train, y_train)
                 pipe.train(dataset, bs, lr, epochs)
                 metric, metric_name = pipe.test(X_test, y_test)
 
-                print(f"{config_name} layer {l}: {metric_name} : {metric}")
+                print(f"{config_name_lay} layer {l}: {metric_name} : {metric}")
 
                 results[config_name][l] = {
                     f"{metric_name}": metric,

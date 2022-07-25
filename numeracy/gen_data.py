@@ -176,7 +176,8 @@ def gen_logic_operations(dtype, min, max, n: int, m: int):
         cfg = ARITH_CFG_INT if dtype == 'algebraic_int' else ARITH_CFG  # if floats > wide range of outs!
         grammar = CFG.fromstring(cfg)
         all = list(generate(grammar, depth=m))
-        trunc = [a for a in all if len(a) == m]
+        # trunc = [a for a in all if len(a) == m]
+        trunc = all
         inps = random.sample(trunc, n)  # depth=5, num=16836
         inps = [set_value(inp) for inp in inps]
         pythonizer = lambda x: eval(' '.join(x))
@@ -186,7 +187,8 @@ def gen_logic_operations(dtype, min, max, n: int, m: int):
         cfg = ARITH_VAR_CFG_INT if dtype == 'var+algebraic_int' else ARITH_VAR_CFG
         grammar = CFG.fromstring(cfg)
         all = list(generate(grammar, depth=m))
-        trunc = [a for a in all if len(a) == m]
+        # trunc = [a for a in all if len(a) == m]
+        trunc = all
         inps = random.sample(trunc, n)
         inps = [set_value_var(inp) for inp in inps]
         eval_var_func = lambda x: eval_var(' '.join(x))

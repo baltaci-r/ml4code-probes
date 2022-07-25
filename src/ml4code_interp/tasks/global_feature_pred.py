@@ -14,10 +14,11 @@ from .utils import read_raw_data
 
 import numpy as np
 import torch
-from ml4code_interp.featurizers.global_features import FEATURE_NAMES, GlobalFeaturesExtractor
+from featurizers.global_features import FEATURE_NAMES, GlobalFeaturesExtractor
 
-from ml4code_interp.featurizers.parser_utils import parse
-from ml4code_interp.models.base import InterpretableModel
+from featurizers.parser_utils import parse
+from models.base import InterpretableModel
+
 
 
 class GlobalFeaturePredTask:
