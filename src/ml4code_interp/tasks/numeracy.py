@@ -24,12 +24,11 @@ from torch.utils.tensorboard import SummaryWriter
 
 def mse(y_pred, y_test):
     with torch.no_grad():
-        # Calculating the loss and accuracy for the test dataset
-        
         mse_loss = nn.MSELoss()
         mse = mse_loss(y_pred, y_test)
     return mse, 'MSE'
-    
+
+
 def acc(y_pred, y_test):
     with torch.no_grad():
         num, len_seq = y_pred.shape
@@ -37,6 +36,7 @@ def acc(y_pred, y_test):
         correct = np.sum((y_pred == y_test.detach().numpy()).all(axis=1))
         accuracy = 100 * correct / num
     return accuracy, 'ACC'
+
 
 # Tasks:
 # ---------
@@ -47,6 +47,7 @@ class ListMinTask:
     def test(self, X_test, y_test):
         y_pred = torch.squeeze(self.model.forward(X_test))
         return acc(y_pred, y_test)
+
 
 class DecodingTask:
     def __init__(self, input_dim):
@@ -78,9 +79,9 @@ class LogicTask:
         else:
             return 0, '' # acc(y_pred, y_test) # could be more than one true fixme!
 
+
 # Models:
 # ---------
-
 class LSTMModel(nn.Module):
     def __init__(self, input_dim, hidden_size):
         super(LSTMModel, self).__init__()
@@ -135,7 +136,6 @@ class SeqLSTMModel(nn.Module):
 # ---------
 class Pipeline:
     def __init__(self, config, task, criterion):
-        # self.model = model
         self.config = config
         self.task = task
         self.criterion = criterion
@@ -147,8 +147,8 @@ class Pipeline:
         dataloader = DataLoader(dataset, batch_size=batch_size)
         optimizer = torch.optim.Adam(self.task.model.parameters(), lr=lr)
         ep = 0
+        running_loss = 0.0
         for epoch in tqdm(range(max_epochs)):
-            running_loss = 0.0
             for i, (x, y) in enumerate(dataloader):
                 optimizer.zero_grad()
                 y_pred = self.task.model(x).squeeze()
@@ -158,7 +158,7 @@ class Pipeline:
                 running_loss += loss.item()
                 ep += 1
                 writer.add_scalar(f"Loss/train", loss.item(), epoch)
-                if ep % 200 == 0:  # print every 2000 mini-batches
+                if ep % 200 == 0:  # print every 200 mini-batches
                     print('ep:', ep, '\tloss:', running_loss/200)
                     running_loss = 0.0
 

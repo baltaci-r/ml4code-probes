@@ -32,17 +32,18 @@ expr -> "NUM" | "VAR" | "(" expr ")" | "+" expr | "-" expr | expr "/" expr |  ex
 OPS = ['<', '>', '>=', '<=', '==']
 
 
-def gen_list_maximum(data_type, min, max, n: int, m: int):
-    if data_type == 'ints':
+def gen_list_maximum(dtype, min, max, n: int, m: int):
+    assert dtype in DATA_TYPES
+    if dtype == 'ints':
         # inps = pd.DataFrame(np.random.randint(low=int(min), high=int(max), size=(n, m))) #.astype(str)
         inps = np.random.randint(low=int(min), high=int(max), size=(n, m))  # .astype(str)
         outs = (inps == inps.max(axis=1)[:, None]).astype(int)
         inps = inps.astype(str)
-    elif data_type == 'floats':
+    elif dtype == 'floats':
         inps = np.random.uniform(low=min, high=max, size=(n, m))
         outs = (inps == inps.max(axis=1)[:, None]).astype(int)
         inps = inps.astype(str)
-    elif data_type == 'words':
+    elif dtype == 'words':
         assert max < 100
         rand_ints = np.random.randint(low=int(min), high=int(max), size=(n, m))
         inps = pd.DataFrame(rand_ints).applymap(lambda x: num2words.num2words(x))
@@ -150,8 +151,9 @@ def gen_logic_operations(dtype, min, max, n: int, m: int):
     """
 
     # todo include min max to truncate operations in between lengths
+    # todo: attach several of these and generate multiple output
     assert dtype in LOGIC_TYPES
-    # todo: attach several of these adn generate multiple output
+
     if dtype == 'bool_simple':
         grammar = CFG.fromstring(BOOL_CFG_SIMPLE)
         inps = random.sample(list(generate(grammar, depth=m)), n)  # depth=5, num=182712, depth=4, num=302
@@ -225,17 +227,13 @@ if __name__ == '__main__':
     parser.add_argument('--fname', type=str)
     args = parser.parse_args()
 
-    # path = f'data/{args.task}_type_{args.type}_min_{args.min}_max_{args.max}_n_{args.n}_m_{args.m}.jsonl'
-
     inps, outs = run_task(args)
     with open(args.fname, 'a', encoding='utf-8') as jl:
-        # for i, o in zip(inps, outs):
-        #     jl.write(json.dumps(dict(language='java', inps=i, outs=o,) ) + "\n")
         vars(args).pop('fname')
         jl.write("{ \"config\": " + json.dumps(vars(args)) + ", \"data\": [")
         for j, (i, o) in enumerate(zip(inps, outs)):
             if j == args.n-1:
-                jl.write(json.dumps(dict(language='java', inps=i, outs=o, )))
+                jl.write(json.dumps(dict(language='java', inps=i, outs=o)))
             else:
-                jl.write(json.dumps(dict(language='java', inps=i, outs=o, )) + ", ")
+                jl.write(json.dumps(dict(language='java', inps=i, outs=o)) + ", ")
         jl.write("]}\n")

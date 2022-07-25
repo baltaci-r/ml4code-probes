@@ -15,3 +15,4 @@ java_parser/target/
 .vscode/
 .editorconfig
 /probing_data/
+/src/ml4code_interp/runs/
