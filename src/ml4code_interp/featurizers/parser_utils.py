@@ -123,13 +123,14 @@ for lang in supported_langs:
         LANGUAGE = Language(os.path.join(os.path.abspath(''), 'src/ml4code_interp/parser/my-languages.so'), lang)
     except:
         try:
-            LANGUAGE = Language(os.path.join(os.path.abspath(''), 'ml4code_interp/parser/my-languages.so'), lang)
+            # LANGUAGE = Language(os.path.join(os.path.abspath(''), 'ml4code_interp/parser/my-languages.so'), lang)
+            LANGUAGE = Language(os.path.join(os.path.abspath(''), 'parser/my-languages.so'), lang)
         except:
             raise
 
     parser = Parser()
     parser.set_language(LANGUAGE)
-    parsers[lang]= parser
+    parsers[lang] = parser
 
 @dataclass
 class ParsedToken:

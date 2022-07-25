@@ -1,10 +1,10 @@
-import numpy as np, random, num2words, pandas as pd, argparse, re
+import numpy as np, random, num2words, pandas as pd, argparse, re, json
 from nltk import CFG
 from nltk.parse.generate import generate
 
 DATA_TYPES = ['floats', 'ints', 'words', 'negatives']
 TASKS = ['list_maximum', 'decoding', 'addition', 'logic']
-LOGIC_TYPES = ['bool_simple', 'bool', 'algebraic_int', 'algebraic_float', \
+LOGIC_TYPES = ['bool_simple', 'bool', 'var_bool', 'algebraic_int', 'algebraic_float', \
                'var+algebraic_int', 'var+algebraic_float', 'var+comparative_int', 'var+comparative_float']
 TYPES = DATA_TYPES + LOGIC_TYPES
 
@@ -34,65 +34,74 @@ OPS = ['<', '>', '>=', '<=', '==']
 
 def gen_list_maximum(data_type, min, max, n: int, m: int):
     if data_type == 'ints':
-        inps = pd.DataFrame(np.random.randint(low=int(min), high=int(max), size=(n, m)))
-        outs = pd.DataFrame((inps == np.max(inps, axis=0)), dtype=int)
-    elif data_type == 'float':
-        inps = pd.DataFrame(np.random.uniform(low=min, high=max, size=(n, m)))
-        outs = pd.DataFrame((inps == np.max(inps, axis=0)), dtype=int)
+        # inps = pd.DataFrame(np.random.randint(low=int(min), high=int(max), size=(n, m))) #.astype(str)
+        inps = np.random.randint(low=int(min), high=int(max), size=(n, m))  # .astype(str)
+        outs = (inps == inps.max(axis=1)[:, None]).astype(int)
+        inps = inps.astype(str)
+    elif data_type == 'floats':
+        inps = np.random.uniform(low=min, high=max, size=(n, m))
+        outs = (inps == inps.max(axis=1)[:, None]).astype(int)
+        inps = inps.astype(str)
     elif data_type == 'words':
         assert max < 100
-        rand_ints = pd.DataFrame(np.random.randint(low=int(min), high=int(max), size=(n, m)))
-        inps = rand_ints.applymap(lambda x: num2words.num2words(x))
-        outs = pd.DataFrame((rand_ints == np.max(rand_ints, axis=0)), dtype=int)
+        rand_ints = np.random.randint(low=int(min), high=int(max), size=(n, m))
+        inps = pd.DataFrame(rand_ints).applymap(lambda x: num2words.num2words(x))
+        outs = (rand_ints == rand_ints.max(axis=1)[:, None]).astype(int)
+        inps = inps.values
+    return inps.tolist(), outs.tolist()
 
 
 def gen_decoding(dtype, min, max, n: int, m: int):
     assert dtype in DATA_TYPES
-    assert m==1
+    assert m == 1
     if dtype == 'ints':
-        outs = pd.DataFrame(np.random.randint(low=int(min), high=int(max), size=(n,)))
-        inps = pd.DataFrame(outs, dtype=str)
-    elif dtype == 'float':
-        outs = pd.DataFrame(np.random.uniform(low=min, high=max, size=(n,)))
-        inps = pd.DataFrame(outs, dtype=str)
+        outs = np.random.randint(low=int(min), high=int(max), size=(n, m))
+        inps = outs.astype(str)
+    elif dtype == 'floats':
+        outs = np.random.uniform(low=min, high=max, size=(n, m))
+        inps = outs.astype(str)
     elif dtype == 'words':
         assert max < 100
-        outs = pd.DataFrame(np.random.randint(low=int(min), high=int(max), size=(n,)))
-        inps = outs.applymap(lambda x: num2words.num2words(x))
+        outs = pd.DataFrame(np.random.randint(low=int(min), high=int(max), size=(n, m)))
+        inps = outs.applymap(lambda x: num2words.num2words(x)).to_numpy()
+        outs = outs.to_numpy()
+    return inps.tolist(), outs.tolist()
 
 
 def gen_addition(dtype, min, max, n: int, m: int):
     assert dtype in DATA_TYPES
     if dtype == 'ints':
-        inps = pd.DataFrame(np.random.randint(low=int(min), high=int(max), size=(n, m)))
-        outs = inps.sum(axis=0)
-    elif dtype == 'float':
-        inps = pd.DataFrame(np.random.uniform(low=min, high=max, size=(n, m)))
-        outs = inps.sum(axis=0)
+        inps = np.random.randint(low=int(min), high=int(max), size=(n, m))
+        outs = inps.sum(axis=1)
+    elif dtype == 'floats':
+        inps = np.random.uniform(low=min, high=max, size=(n, m))
+        outs = inps.sum(axis=1)
     elif dtype == 'words':
         assert max < 100
         rand_ints = pd.DataFrame(np.random.randint(low=int(min), high=int(max), size=(n, m)))
-        inps = rand_ints.applymap(lambda x: num2words.num2words(x))
-        outs = rand_ints.sum(axis=0)
+        inps = rand_ints.applymap(lambda x: num2words.num2words(x)).values
+        outs = rand_ints.sum(axis=1).to_numpy()
+    return inps.astype(str).tolist(), outs.tolist()
 
 
 def gen_logic_operations(dtype, min, max, n: int, m: int):
 
+    # todo: for loop for other languages if any different
     def set_value(x):
-        while re.search('NUM', x):
-            i, j = re.search('NUM', x).regs[0]
-            if 'int' in dtype:
-                x = x[:i] + str(random.randint(min, max)) + x[j:]
-            elif 'float' in dtype:
-                x[i:j] = x[:i] + str(random.uniform(min, max)) + x[j:]
+        for i, y in enumerate(x):
+            if y == 'NUM':
+                if 'int' in dtype:
+                    x[i] = str(random.randint(min, max))
+                elif 'float' in dtype:
+                    x[i] = str(random.uniform(min, max))
         return x
 
     def set_value_var(x):
         x = set_value(x)
         if 'int' in dtype:
-            x = f'VAR = {random.randint(min, max)}; ' + x
+            x = ['VAR', '=', str(random.randint(min, max)), ';'] + x
         elif 'float' in dtype:
-            x = f'VAR = {random.uniform(min, max)}; ' + x
+            x = ['VAR', '=', str(random.uniform(min, max)), ';'] + x
         return x
 
     def eval_var(exp):
@@ -108,7 +117,7 @@ def gen_logic_operations(dtype, min, max, n: int, m: int):
         exp = [e.strip() for e in exp]
         exp = '\n'.join(exp[:nvar]) + '\n' + '\n'.join([f'out_{i}= '+ e for i, e in enumerate(exp[nvar:])])
         exec(exp, globals(), loc)
-        outs = [v for k,v in loc.items() if 'out' in k]
+        outs = [v for k, v in loc.items() if 'out' in k]
         return outs
 
     def gen_comp(m):
@@ -119,18 +128,16 @@ def gen_logic_operations(dtype, min, max, n: int, m: int):
         X (<|>|>=|<=|==) int/float; (and|or) Y (<|>|>=|<=|==) int/float;
         """
         if 'int' in dtype:
-            exp = f'X = {random.randint(min, max)}; Y = {random.randint(min, max)}; '
+            exp = f'X = {random.randint(min, max)} ; Y = {random.randint(min, max)} ; '
         elif 'float' in dtype:
-            exp = f'X = {random.uniform(min, max)}; Y = {random.uniform(min, max)}; '
+            exp = f'X = {random.uniform(min, max)} ; Y = {random.uniform(min, max)} ; '
 
         for i in range(m):
             if i==m-1:
                 exp += f'X {random.choice(OPS)} Y'
             else:
-                exp += f'X {random.choice(OPS)} Y; '
-        return exp
-
-
+                exp += f'X {random.choice(OPS)} Y ; '
+        return exp.split()
 
 
     """
@@ -147,52 +154,51 @@ def gen_logic_operations(dtype, min, max, n: int, m: int):
     # todo: attach several of these adn generate multiple output
     if dtype == 'bool_simple':
         grammar = CFG.fromstring(BOOL_CFG_SIMPLE)
-        inps = random.sample(list(generate(grammar, depth=m)), n)
-        inps = pd.DataFrame([' '.join(sent) for sent in inps])
-        inps = inps.astype(str)
-        pythonizer = lambda x: eval(f"{x}")
-        outs = inps.applymap(pythonizer)
+        inps = random.sample(list(generate(grammar, depth=m)), n)  # depth=5, num=182712, depth=4, num=302
+        pythonizer = lambda x: eval(' '.join(x))
+        outs = [pythonizer(inp) for inp in inps]
 
     elif dtype == 'bool':
         grammar = CFG.fromstring(BOOL_CFG)
-        inps = random.sample(list(generate(grammar, depth=m)), n)
-        inps = pd.DataFrame([' '.join(sent) for sent in inps])
-        inps = inps.astype(str)
-        pythonizer = lambda x: eval(f"{x}")
-        outs = inps.applymap(pythonizer)
+        inps = random.sample(list(generate(grammar, depth=m)), n)  # depth=5, num=357014, depth=4, num=422
+        pythonizer = lambda x: eval(' '.join(x))
+        outs = [pythonizer(inp) for inp in inps]
 
-    elif dtype == 'var_bool':
-        grammar = CFG.fromstring(BOOL_CFG)
-        inps = random.sample(list(generate(grammar, depth=m)), n)
-        inps = pd.DataFrame([' '.join(sent) for sent in inps])
-        inps = inps.astype(str)
-        pythonizer = lambda x: eval(f"{x}")  # todo: check if we need formatting
-        outs = inps.applymap(pythonizer)
+    # elif dtype == 'var_bool':
+        # grammar = CFG.fromstring(BOOL_CFG)
+        # inps = random.sample(list(generate(grammar, depth=m)), n)
+        # inps = pd.DataFrame([' '.join(sent) for sent in inps])
+        # inps = inps.astype(str)
+        # pythonizer = lambda x: eval(f"{x}")  # todo: check if we need formatting
+        # outs = inps.applymap(pythonizer)
 
     elif dtype in ['algebraic_int', 'algebraic_float']:
         cfg = ARITH_CFG_INT if dtype == 'algebraic_int' else ARITH_CFG  # if floats > wide range of outs!
         grammar = CFG.fromstring(cfg)
-        inps = random.sample(list(generate(grammar, depth=m)), n)
-        inps = pd.DataFrame([' '.join(sent) for sent in inps])
-        inps = inps.applymap(set_value)
-        pythonizer = lambda x: eval(x)
-        outs = inps.applymap(pythonizer)
+        all = list(generate(grammar, depth=m))
+        trunc = [a for a in all if len(a) == m]
+        inps = random.sample(trunc, n)  # depth=5, num=16836
+        inps = [set_value(inp) for inp in inps]
+        pythonizer = lambda x: eval(' '.join(x))
+        outs = [pythonizer(inp) for inp in inps]
 
     elif dtype in ['var+algebraic_int', 'var+algebraic_float']:
         cfg = ARITH_VAR_CFG_INT if dtype == 'var+algebraic_int' else ARITH_VAR_CFG
         grammar = CFG.fromstring(cfg)
-        inps = random.sample(list(generate(grammar, depth=m)), n)
-        inps = pd.DataFrame([' '.join(sent) for sent in inps])
-        inps = inps.applymap(set_value_var)
-        eval_var_func = lambda x: eval_var(x)
-        outs = inps.applymap(eval_var_func)
+        all = list(generate(grammar, depth=m))
+        trunc = [a for a in all if len(a) == m]
+        inps = random.sample(trunc, n)
+        inps = [set_value_var(inp) for inp in inps]
+        eval_var_func = lambda x: eval_var(' '.join(x))
+        outs = [eval_var_func(inp) for inp in inps]
 
     elif dtype in ['var+comparative_int', 'var+comparative_float']:
         # defaults to two variables # todo: add more variables?
-        inps = pd.DataFrame([gen_comp(m) for _ in range(n)])
-        eval_var_func = lambda x: eval_comp(x)
-        outs = inps.applymap(eval_var_func)
-        outs = pd.DataFrame(outs[0].to_list())
+        inps = [gen_comp(m) for _ in range(n)]
+        eval_var_func = lambda x: eval_comp(' '.join(x))
+        outs = [eval_var_func(inp) for inp in inps]
+
+    return inps, outs
 
 
 def run_task(args):
@@ -214,7 +220,20 @@ if __name__ == '__main__':
     parser.add_argument('-m', type=int)
     parser.add_argument('--type', choices=TYPES)
     parser.add_argument('--task', choices=TASKS)
-    parser.add_argument('-s', type=float, help='train-test split')
-
+    parser.add_argument('--fname', type=str)
     args = parser.parse_args()
-    run_task(args)
+
+    # path = f'data/{args.task}_type_{args.type}_min_{args.min}_max_{args.max}_n_{args.n}_m_{args.m}.jsonl'
+
+    inps, outs = run_task(args)
+    with open(args.fname, 'a', encoding='utf-8') as jl:
+        # for i, o in zip(inps, outs):
+        #     jl.write(json.dumps(dict(language='java', inps=i, outs=o,) ) + "\n")
+        vars(args).pop('fname')
+        jl.write("{ \"config\": " + json.dumps(vars(args)) + ", \"data\": [")
+        for j, (i, o) in enumerate(zip(inps, outs)):
+            if j == args.n-1:
+                jl.write(json.dumps(dict(language='java', inps=i, outs=o, )))
+            else:
+                jl.write(json.dumps(dict(language='java', inps=i, outs=o, )) + ", ")
+        jl.write("]}\n")

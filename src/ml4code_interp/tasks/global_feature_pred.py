@@ -9,6 +9,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
 from typing import List, Tuple
 from tqdm import tqdm
+import os
+from .utils import read_raw_data
 
 import numpy as np
 import torch
@@ -16,6 +18,7 @@ from ml4code_interp.featurizers.global_features import FEATURE_NAMES, GlobalFeat
 
 from ml4code_interp.featurizers.parser_utils import parse
 from ml4code_interp.models.base import InterpretableModel
+
 
 class GlobalFeaturePredTask:
     """
@@ -30,6 +33,12 @@ class GlobalFeaturePredTask:
         :param data: A list of tuples of (lang, code).
         """
         self.model = model
+
+    def load_data(self, path, data_path):
+        if not os.path.exists(path):
+            prepared_data = self.prepare_data(read_raw_data(data_path))
+            torch.save(prepared_data, path)
+        return torch.load(path)
 
     def prepare_data(self, raw_data: List[Tuple[str, str]]) -> dict:
         output = {
@@ -90,7 +99,7 @@ class GlobalFeaturePredTask:
         inputs = data['embeds']
         num_layers = len(inputs)
 
-        results = {} # maps (feature_name, layer_idx) to {"accuracy": float, "confusion_matrix": Tensor[2][2]}
+        results = {}  # maps (feature_name, layer_idx) to {"accuracy": float, "confusion_matrix": Tensor[2][2]}
 
         for f_idx, f_name in tqdm(enumerate(data['feature_names'])):
             y = data['features'][f_idx]
