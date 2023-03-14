@@ -1,14 +1,16 @@
+import os.path
+
 import numpy as np, random, num2words, pandas as pd, argparse, re, json
 from nltk import CFG
 from nltk.parse.generate import generate
-
+import math
 DATA_TYPES = ['floats', 'ints', 'words', 'negatives']
 TASKS = ['list_maximum', 'decoding', 'addition', 'logic']
 LOGIC_TYPES = ['bool_simple', 'bool', 'var_bool', 'algebraic_int', 'algebraic_float', \
                'var+algebraic_int', 'var+algebraic_float', 'var+comparative_int', 'var+comparative_float']
 TYPES = DATA_TYPES + LOGIC_TYPES
 
-# CFG: (python)  # todo: do the same for other languages!
+# CFG: (python)   # todo: do the same for other languages!
 BOOL_CFG_SIMPLE = """
 bexp -> "True" | "False" | bexp "or" bexp | bexp "and" bexp | "not" bexp
 """
@@ -30,6 +32,15 @@ expr -> "NUM" | "VAR" | "(" expr ")" | "+" expr | "-" expr | expr "/" expr |  ex
 """
 
 OPS = ['<', '>', '>=', '<=', '==']
+
+
+def logize(out):
+    if out > 0:
+        return math.log(out)
+    elif out < 0:
+        return - math.log(-out)
+    else:
+        return 0
 
 
 def gen_list_maximum(dtype, min, max, n: int, m: int):
@@ -54,6 +65,7 @@ def gen_list_maximum(dtype, min, max, n: int, m: int):
 
 def gen_decoding(dtype, min, max, n: int, m: int):
     assert dtype in DATA_TYPES
+    # todo: log the output!!
     assert m == 1
     if dtype == 'ints':
         outs = np.random.randint(low=int(min), high=int(max), size=(n, m))
@@ -66,7 +78,8 @@ def gen_decoding(dtype, min, max, n: int, m: int):
         outs = pd.DataFrame(np.random.randint(low=int(min), high=int(max), size=(n, m)))
         inps = outs.applymap(lambda x: num2words.num2words(x)).to_numpy()
         outs = outs.to_numpy()
-    return inps.tolist(), outs.tolist()
+    # return inps.tolist(), outs.tolist()
+    return inps.tolist(), [logize(o) for o in outs]
 
 
 def gen_addition(dtype, min, max, n: int, m: int):
@@ -82,7 +95,9 @@ def gen_addition(dtype, min, max, n: int, m: int):
         rand_ints = pd.DataFrame(np.random.randint(low=int(min), high=int(max), size=(n, m)))
         inps = rand_ints.applymap(lambda x: num2words.num2words(x)).values
         outs = rand_ints.sum(axis=1).to_numpy()
-    return inps.astype(str).tolist(), outs.tolist()
+    # todo: log the output!!
+    # return inps.astype(str).tolist(), outs.tolist()
+    return inps.astype(str).tolist(), [logize(o) for o in outs]
 
 
 def gen_logic_operations(dtype, min, max, n: int, m: int):
@@ -156,13 +171,15 @@ def gen_logic_operations(dtype, min, max, n: int, m: int):
 
     if dtype == 'bool_simple':
         grammar = CFG.fromstring(BOOL_CFG_SIMPLE)
-        inps = random.sample(list(generate(grammar, depth=m)), n)  # depth=5, num=182712, depth=4, num=302
+        # inps = random.sample(list(generate(grammar, depth=m)), n)  # depth=5, num=182712, depth=4, num=302
+        inps = random.choices(list(generate(grammar, depth=m)), k=n)  # depth=5, num=182712, depth=4, num=302
         pythonizer = lambda x: eval(' '.join(x))
         outs = [pythonizer(inp) for inp in inps]
 
     elif dtype == 'bool':
         grammar = CFG.fromstring(BOOL_CFG)
-        inps = random.sample(list(generate(grammar, depth=m)), n)  # depth=5, num=357014, depth=4, num=422
+        # inps = random.sample(list(generate(grammar, depth=m)), n)  # depth=5, num=357014, depth=4, num=422
+        inps = random.choices(list(generate(grammar, depth=m)), k=n)  # depth=5, num=182712, depth=4, num=302
         pythonizer = lambda x: eval(' '.join(x))
         outs = [pythonizer(inp) for inp in inps]
 
@@ -180,10 +197,13 @@ def gen_logic_operations(dtype, min, max, n: int, m: int):
         all = list(generate(grammar, depth=m))
         # trunc = [a for a in all if len(a) == m]
         trunc = all
-        inps = random.sample(trunc, n)  # depth=5, num=16836
+        # inps = random.sample(trunc, n)  # depth=5, num=16836
+        inps = random.choices(trunc, k=n)
         inps = [set_value(inp) for inp in inps]
         pythonizer = lambda x: eval(' '.join(x))
-        outs = [pythonizer(inp) for inp in inps]
+        # outs = [pythonizer(inp) for inp in inps]
+        outs = [logize(pythonizer(inp)) for inp in inps]
+        # todo: log the output!!
 
     elif dtype in ['var+algebraic_int', 'var+algebraic_float']:
         cfg = ARITH_VAR_CFG_INT if dtype == 'var+algebraic_int' else ARITH_VAR_CFG
@@ -191,10 +211,12 @@ def gen_logic_operations(dtype, min, max, n: int, m: int):
         all = list(generate(grammar, depth=m))
         # trunc = [a for a in all if len(a) == m]
         trunc = all
-        inps = random.sample(trunc, n)
+        # inps = random.sample(trunc, n)
+        inps = random.choices(trunc, k=n)
         inps = [set_value_var(inp) for inp in inps]
         eval_var_func = lambda x: eval_var(' '.join(x))
-        outs = [eval_var_func(inp) for inp in inps]
+        # outs = [eval_var_func(inp) for inp in inps]
+        outs = [logize(eval_var_func(inp)) for inp in inps]
 
     elif dtype in ['var+comparative_int', 'var+comparative_float']:
         # defaults to two variables # todo: add more variables?
@@ -227,7 +249,16 @@ if __name__ == '__main__':
     parser.add_argument('--fname', type=str)
     args = parser.parse_args()
 
+    if os.path.exists(args.fname):
+        with open(args.fname) as f:
+            for dct in f:
+                dct = json.loads(dct)
+                _args = {k: v for k, v in vars(args).items() if k != 'fname'}
+                if dct['config'] == _args:
+                    raise Exception(f'Dataset for the config: {_args}\n has been already created\n')
+
     inps, outs = run_task(args)
+
     with open(args.fname, 'a', encoding='utf-8') as jl:
         vars(args).pop('fname')
         jl.write("{ \"config\": " + json.dumps(vars(args)) + ", \"data\": [")

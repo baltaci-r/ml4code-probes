@@ -5,6 +5,9 @@ from transformers import AutoTokenizer, AutoModel, BatchEncoding
 from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAttentions
 
 from featurizers.parser_utils import ParseResult
+import accelerate
+from accelerate import Accelerator
+
 
 class InterpretableModel(object):
     """
@@ -12,9 +15,17 @@ class InterpretableModel(object):
     """
 
     def __init__(self, model_name_or_path: str):
-        self.model = AutoModel.from_pretrained(model_name_or_path)
-        self.model.eval()
+        # accelerator = Accelerator()
+        # if
+        if model_name_or_path.startswith('Salesforce'):
+            self.model = AutoModel.from_pretrained(model_name_or_path, device_map='auto')
+        else:
+            self.model = AutoModel.from_pretrained(model_name_or_path)
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.model = self.model.to(device)
 
+        # self.model = accelerator.prepare(self.model)
+        self.model.eval()
         self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
         assert self.tokenizer.is_fast, "We only support fast tokenizers for now."
     
@@ -54,7 +65,6 @@ class InterpretableModel(object):
         """
         inputs, hidden_outputs = self._infer(parse_result)
         alignment_map = self._align_tokens(parse_result, inputs)
-
         result = []
         for layer_out in hidden_outputs:
             # result.append([])
@@ -62,7 +72,9 @@ class InterpretableModel(object):
             for model_tok_idxs in alignment_map:
                 if model_tok_idxs:
                     seq_result.append(torch.mean(layer_out[model_tok_idxs, :], axis=0))
+            # todo: add padding
             seq_result = torch.vstack(seq_result).squeeze(0)
+
             result.append(seq_result.unsqueeze(0))
         return result
 
@@ -87,7 +99,6 @@ class InterpretableModel(object):
     
     def _infer(self, parse_result) -> Tuple[BatchEncoding, BaseModelOutputWithPoolingAndCrossAttentions]:
         inputs = self._prepare_input(parse_result)
-        
         with torch.no_grad():
             model_output = self.model(**inputs, output_hidden_states=True)
         

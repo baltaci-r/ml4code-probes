@@ -1,11 +1,12 @@
 from dataclasses import dataclass
 import re
 from io import StringIO
-import  tokenize
+import tokenize
 from typing import Dict, List
 import numpy as np
 import tree_sitter
 import os.path
+
 def remove_comments_and_docstrings(source,lang):
     return source # don't use this
     if lang in ['python']:
@@ -136,7 +137,7 @@ for lang in supported_langs:
 class ParsedToken:
     idx: int
     str: str
-    node: tree_sitter.Node
+    # node: tree_sitter.Node
     char_start: int
     char_end: int
 
